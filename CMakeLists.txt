@@ -22,3 +22,8 @@ target_include_directories(s1infer_core PUBLIC include)
 add_executable(test_m0 tests/test_m0_tensor.cpp)
 target_include_directories(test_m0 PRIVATE tests)
 target_link_libraries(test_m0 PRIVATE s1infer_core)
+
+add_executable(test_m1 tests/test_m1_safetensors.cpp)
+target_include_directories(test_m1 PRIVATE tests)
+target_link_libraries(test_m1 PRIVATE s1infer_core)
+target_compile_definitions(test_m1 PRIVATE WEIGHTS_DIR="${CMAKE_SOURCE_DIR}/weights")
