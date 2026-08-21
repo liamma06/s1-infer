@@ -16,6 +16,7 @@ endif()
 
 add_library(s1infer_core STATIC
     src/tensor.cpp
+    src/tokenizer/bpe_tokenizer.cpp
 )
 target_include_directories(s1infer_core PUBLIC include)
 
@@ -27,3 +28,8 @@ add_executable(test_m1 tests/test_m1_safetensors.cpp)
 target_include_directories(test_m1 PRIVATE tests)
 target_link_libraries(test_m1 PRIVATE s1infer_core)
 target_compile_definitions(test_m1 PRIVATE WEIGHTS_DIR="${CMAKE_SOURCE_DIR}/weights")
+
+add_executable(test_bpe tests/test_bpe_tokenizer.cpp)
+target_include_directories(test_bpe PRIVATE tests)
+target_link_libraries(test_bpe PRIVATE s1infer_core)
+target_compile_definitions(test_bpe PRIVATE WEIGHTS_DIR="${CMAKE_SOURCE_DIR}/weights")
