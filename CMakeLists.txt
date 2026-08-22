@@ -19,6 +19,8 @@ add_library(s1infer_core STATIC
     src/tokenizer/bpe_tokenizer.cpp
     src/nn/rmsnorm.cpp
     src/nn/embedding.cpp
+    src/nn/RoPE.cpp
+    src/nn/attention.cpp
 )
 target_include_directories(s1infer_core PUBLIC include)
 
@@ -43,6 +45,10 @@ target_link_libraries(test_rmsnorm PRIVATE s1infer_core)
 add_executable(test_embedding tests/test_embedding.cpp)
 target_include_directories(test_embedding PRIVATE tests)
 target_link_libraries(test_embedding PRIVATE s1infer_core)
+
+add_executable(test_rope tests/test_rope.cpp)
+target_include_directories(test_rope PRIVATE tests)
+target_link_libraries(test_rope PRIVATE s1infer_core)
 
 add_executable(demo src/demo.cpp)
 target_link_libraries(demo PRIVATE s1infer_core)
