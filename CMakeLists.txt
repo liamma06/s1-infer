@@ -50,6 +50,10 @@ add_executable(test_rope tests/test_rope.cpp)
 target_include_directories(test_rope PRIVATE tests)
 target_link_libraries(test_rope PRIVATE s1infer_core)
 
+add_executable(test_attention tests/test_attention.cpp)
+target_include_directories(test_attention PRIVATE tests)
+target_link_libraries(test_attention PRIVATE s1infer_core)
+
 add_executable(demo src/demo.cpp)
 target_link_libraries(demo PRIVATE s1infer_core)
 target_compile_definitions(demo PRIVATE WEIGHTS_DIR="${CMAKE_SOURCE_DIR}/weights")
