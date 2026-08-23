@@ -22,6 +22,7 @@ add_library(s1infer_core STATIC
     src/nn/RoPE.cpp
     src/nn/attention.cpp
     src/nn/mlp.cpp
+    src/nn/layer.cpp
 )
 target_include_directories(s1infer_core PUBLIC include)
 
@@ -58,6 +59,10 @@ target_link_libraries(test_attention PRIVATE s1infer_core)
 add_executable(test_mlp tests/test_mlp.cpp)
 target_include_directories(test_mlp PRIVATE tests)
 target_link_libraries(test_mlp PRIVATE s1infer_core)
+
+add_executable(test_layer tests/test_layer.cpp)
+target_include_directories(test_layer PRIVATE tests)
+target_link_libraries(test_layer PRIVATE s1infer_core)
 
 add_executable(demo src/demo.cpp)
 target_link_libraries(demo PRIVATE s1infer_core)
