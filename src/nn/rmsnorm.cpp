@@ -3,8 +3,9 @@
 
 TensorPtr rmsnorm(const TensorPtr& input, const TensorPtr& weight, scalar_t eps) {
     /*
-        input = [seq_len, embed_dim]
-        weight = [embed_dim]
+        input = [..., last_dim] 
+        weight = [last_dim]
+        
     */
 
     TensorPtr output = Tensor::create(input->shape());   
