@@ -73,3 +73,4 @@ target_compile_definitions(test_model PRIVATE WEIGHTS_DIR="${CMAKE_SOURCE_DIR}/w
 add_executable(demo src/demo.cpp)
 target_link_libraries(demo PRIVATE s1infer_core)
 target_compile_definitions(demo PRIVATE WEIGHTS_DIR="${CMAKE_SOURCE_DIR}/weights")
+target_compile_definitions(demo PRIVATE SCRIPTS_DIR="${CMAKE_SOURCE_DIR}/scripts")

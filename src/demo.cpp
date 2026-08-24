@@ -4,6 +4,7 @@
 #include "model/model.h"
 #include <iostream>
 #include <string>
+#include <fstream>
 
 int main() {
     auto weights = load_safetensors(std::string(WEIGHTS_DIR) + "/model.safetensors");
@@ -49,6 +50,17 @@ int main() {
         std::string next_token_text = tokenizer.decode({static_cast<int>(best_id)});
         std::cout << "predicted next token id: " << best_id
                    << " (score " << best_score << ") -> \"" << next_token_text << "\"\n";
+
+        // Raw float32 dump for numeric comparison against the HF reference
+        // (see scripts/hf_reference.py --mode raw_logits). Row-major,
+        // [seq_len, vocab_size], readable in Python via
+        // np.fromfile(path, dtype=np.float32).reshape(seq_len, vocab_size).
+        std::string dump_path = std::string(SCRIPTS_DIR) + "/cpp_logits.bin";
+        std::ofstream dump_file(dump_path, std::ios::binary);
+        dump_file.write(reinterpret_cast<const char*>(logits->data().data()),
+                         static_cast<std::streamsize>(logits->numel() * sizeof(scalar_t)));
+        dump_file.close();
+        std::cout << "dumped logits to " << dump_path << "\n";
     }
 
     return 0;
