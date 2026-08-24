@@ -3,6 +3,36 @@
 #include "nn/layer.h"
 #include "nn/rmsnorm.h"
 
+std::string format_prompt(
+    const std::string& transcript,
+    const std::string& styling,
+    const std::string& structure,
+    const std::string& context
+) {
+    /*
+        <|im_start|>system
+        You are a text normalizer for speech-to-text transcripts. The input begins with a control line specifying the styling, structure, and context settings; clean the transcript to match those settings and output only the cleaned text.<|im_end|>
+        <|im_start|>user
+        [Styling: semi-formal] [Structure: prose] [Context: general]
+        <raw transcript><|im_end|>
+        <|im_start|>assistant
+        <think>
+
+        </think>
+
+        defined here: https://huggingface.co/superwhisper/s1-mini
+    */
+    std::string prompt = "<|im_start|>system\n"
+                         "You are a text normalizer for speech-to-text transcripts. The input begins with a control line specifying the styling, structure, and context settings; clean the transcript to match those settings and output only the cleaned text.<|im_end|>\n"
+                         "<|im_start|>user\n"
+                         "[Styling: " + styling + "] [Structure: " + structure + "] [Context: " + context + "]\n"
+                         + transcript + "<|im_end|>\n"
+                         "<|im_start|>assistant\n"
+                         "<think>\n\n</think>\n\n";
+
+    return prompt;
+}
+
 TensorPtr model_forward(const std::vector<int>& token_ids, const std::map<std::string, TensorPtr>& weights) {
 
     auto x = embedding_lookup(weights.at("model.embed_tokens.weight"), token_ids);
@@ -33,6 +63,4 @@ TensorPtr model_forward(const std::vector<int>& token_ids, const std::map<std::s
     auto logits = output_norm->matmul(weights.at("lm_head.weight")->transpose());
 
     return logits; // [seq_len, vocab_size]
-
-
 }
