@@ -13,7 +13,7 @@ std::string format_prompt(
     const std::string& context = "general"
 );
 
-TensorPtr model_forward(const std::vector<int>& token_ids, const std::map<std::string, TensorPtr>& weights);
+TensorPtr model_forward(const std::vector<int>& token_ids, const std::map<std::string, TensorPtr>& weights, bool last_token_only = false);
 
 struct GenerationResult {
     std::vector<int> token_ids;   

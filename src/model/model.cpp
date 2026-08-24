@@ -68,7 +68,7 @@ std::string format_prompt(
 }
 
 
-TensorPtr model_forward(const std::vector<int>& token_ids, const std::map<std::string, TensorPtr>& weights) {
+TensorPtr model_forward(const std::vector<int>& token_ids, const std::map<std::string, TensorPtr>& weights, bool last_token_only) {
 
     auto x = embedding_lookup(weights.at("model.embed_tokens.weight"), token_ids);
 
@@ -95,6 +95,16 @@ TensorPtr model_forward(const std::vector<int>& token_ids, const std::map<std::s
 
     auto output_norm = rmsnorm(x, weights.at("model.norm.weight"), 1e-6f);
 
+    if (last_token_only) {
+        size_t seq_len = output_norm->shape()[0];
+        size_t hidden_size = output_norm->shape()[1];
+        auto last_row = Tensor::create({1, hidden_size});
+        for (size_t j = 0; j < hidden_size; j++) {
+            last_row->at({0, j}) = output_norm->at({seq_len - 1, j});
+        }
+        output_norm = last_row;
+    }
+
     auto logits = output_norm->matmul(weights.at("lm_head.weight"));
 
     return logits; // [seq_len, vocab_size]
@@ -113,17 +123,16 @@ GenerationResult generate(
 
     for (size_t i = 0; i < max_new_tokens; ++i) {
         auto step_start = std::chrono::steady_clock::now();
-        auto logits = model_forward(token_ids, weights);
+        auto logits = model_forward(token_ids, weights, true);
         auto step_end = std::chrono::steady_clock::now();
         step_ms.push_back(std::chrono::duration<double, std::milli>(step_end - step_start).count());
 
-        //greedy
-        size_t last_pos = token_ids.size() - 1;
+        //greedy (only last token logits)
         size_t best_id = 0;
 
-        scalar_t best_score = logits->at({last_pos, 0});
+        scalar_t best_score = logits->at({0, 0});
         for (size_t j = 1; j < vocab_size; j++) {
-            scalar_t score = logits->at({last_pos, j});
+            scalar_t score = logits->at({0, j});
             if (score > best_score) {
                 best_score = score;
                 best_id = j;
