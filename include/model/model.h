@@ -14,3 +14,8 @@ std::string format_prompt(
 
 TensorPtr model_forward(const std::vector<int>& token_ids, const std::map<std::string, TensorPtr>& weights);
 
+std::vector<int> generate(
+    const std::vector<int>& prompt_token_ids,
+    const std::map<std::string, TensorPtr>& weights,
+    size_t max_new_tokens
+);
