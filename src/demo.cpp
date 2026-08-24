@@ -7,6 +7,7 @@
 
 int main() {
     auto weights = load_safetensors(std::string(WEIGHTS_DIR) + "/model.safetensors");
+    weights = pretranspose_weights(weights);
     BpeTokenizer tokenizer(std::string(WEIGHTS_DIR) + "/tokenizer.json");
 
     std::cout << "s1-infer demo. Type a raw transcript and press Enter. Type 'exit' to quit.\n";

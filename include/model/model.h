@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+std::map<std::string, TensorPtr> pretranspose_weights(const std::map<std::string, TensorPtr>& weights);
 
 std::string format_prompt(
     const std::string& transcript,

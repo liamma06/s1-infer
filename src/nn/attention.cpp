@@ -82,14 +82,15 @@ TensorPtr self_attention(
     size_t start_pos                 
 ){
     /*
-        q_proj_weight: [num_q_heads * head_dim, emb_dim] -> [2048, 1024]
+
+        q_proj_weight: [emb_dim, num_q_heads * head_dim] -> [1024, 2048]
         k/v proj_weight : [1024, 1024]
     */
 
     TensorPtr Q_flat, K_flat, V_flat;
-    Q_flat = x->matmul(q_proj_weight->transpose());
-    K_flat = x->matmul(k_proj_weight->transpose());
-    V_flat = x->matmul(v_proj_weight->transpose());
+    Q_flat = x->matmul(q_proj_weight);
+    K_flat = x->matmul(k_proj_weight);
+    V_flat = x->matmul(v_proj_weight);
 
     //{tensor, head, dim}
     auto Q_heads = reshape_to_heads(Q_flat, 16, 128);
@@ -108,8 +109,8 @@ TensorPtr self_attention(
 
     auto attn_out_flat = attn_out->reshape({seq_len, 16 * 128});
 
-    //linear proj 
-    auto output = attn_out_flat->matmul(o_proj_weight->transpose());
+    //linear proj
+    auto output = attn_out_flat->matmul(o_proj_weight);
 
     return output;
 }

@@ -7,6 +7,7 @@
 
 TEST_CASE("model_forward runs end-to-end on real weights and produces finite logits") {
     auto weights = load_safetensors(std::string(WEIGHTS_DIR) + "/model.safetensors");
+    weights = pretranspose_weights(weights);
     BpeTokenizer tokenizer(std::string(WEIGHTS_DIR) + "/tokenizer.json");
 
     std::vector<int> token_ids = tokenizer.encode("Hello, world!");

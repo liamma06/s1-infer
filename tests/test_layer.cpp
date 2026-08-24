@@ -17,14 +17,14 @@ TEST_CASE("layer_forward is identity when both norm weights are zero") {
     TensorPtr zero_norm = Tensor::create({hidden_size}, 0.0f);
     TensorPtr zero_head_norm = Tensor::create({128}, 0.0f);
 
-    TensorPtr q_proj = Tensor::create({2048, 1024}, 0.5f);
+    TensorPtr q_proj = Tensor::create({1024, 2048}, 0.5f);
     TensorPtr k_proj = Tensor::create({1024, 1024}, 0.5f);
     TensorPtr v_proj = Tensor::create({1024, 1024}, 0.5f);
-    TensorPtr o_proj = Tensor::create({1024, 2048}, 0.5f);
+    TensorPtr o_proj = Tensor::create({2048, 1024}, 0.5f);
 
-    TensorPtr gate_proj = Tensor::create({3072, 1024}, 0.5f);
-    TensorPtr up_proj = Tensor::create({3072, 1024}, 0.5f);
-    TensorPtr down_proj = Tensor::create({1024, 3072}, 0.5f);
+    TensorPtr gate_proj = Tensor::create({1024, 3072}, 0.5f);
+    TensorPtr up_proj = Tensor::create({1024, 3072}, 0.5f);
+    TensorPtr down_proj = Tensor::create({3072, 1024}, 0.5f);
 
     TensorPtr out = layer_forward(
         x,
@@ -60,14 +60,16 @@ TEST_CASE("layer_forward preserves shape with real per-layer weight dims") {
     TensorPtr post_attn_norm = Tensor::create({hidden_size}, 1.0f);
     TensorPtr head_norm = Tensor::create({128}, 1.0f);
 
-    TensorPtr q_proj = Tensor::create({2048, 1024}, 0.01f);
+    // weights are expected pre-transposed [in_features, out_features] now
+    // (see pretranspose_weights in model.cpp)
+    TensorPtr q_proj = Tensor::create({1024, 2048}, 0.01f);
     TensorPtr k_proj = Tensor::create({1024, 1024}, 0.01f);
     TensorPtr v_proj = Tensor::create({1024, 1024}, 0.01f);
-    TensorPtr o_proj = Tensor::create({1024, 2048}, 0.01f);
+    TensorPtr o_proj = Tensor::create({2048, 1024}, 0.01f);
 
-    TensorPtr gate_proj = Tensor::create({3072, 1024}, 0.01f);
-    TensorPtr up_proj = Tensor::create({3072, 1024}, 0.01f);
-    TensorPtr down_proj = Tensor::create({1024, 3072}, 0.01f);
+    TensorPtr gate_proj = Tensor::create({1024, 3072}, 0.01f);
+    TensorPtr up_proj = Tensor::create({1024, 3072}, 0.01f);
+    TensorPtr down_proj = Tensor::create({3072, 1024}, 0.01f);
 
     TensorPtr out = layer_forward(
         x,

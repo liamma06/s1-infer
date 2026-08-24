@@ -20,17 +20,17 @@ TensorPtr swiglu_mlp(
     const TensorPtr& down_proj_weight
 ) {
     /*
-        x  = (seq_len, emb_dim)
+        x = (seq_len, emb_dim)
         https://www.youtube.com/watch?v=p8j2N40mu5U
     */
 
-    auto up = x->matmul(up_proj_weight ->transpose());
-    auto gate = x->matmul(gate_proj_weight->transpose());
+    auto up = x->matmul(up_proj_weight);
+    auto gate = x->matmul(gate_proj_weight);
 
     gate = silu(gate);
 
     auto hidden = gate->mul(up);
 
-    auto output = hidden->matmul(down_proj_weight->transpose());
+    auto output = hidden->matmul(down_proj_weight);
     return output;
 }

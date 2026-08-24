@@ -3,6 +3,39 @@
 #include "nn/layer.h"
 #include "nn/rmsnorm.h"
 #include <chrono>
+#include <array>
+
+std::map<std::string, TensorPtr> pretranspose_weights(const std::map<std::string, TensorPtr>& weights) {
+    static const std::array<std::string, 7> proj_suffixes = {
+        "self_attn.q_proj.weight",
+        "self_attn.k_proj.weight",
+        "self_attn.v_proj.weight",
+        "self_attn.o_proj.weight",
+        "mlp.gate_proj.weight",
+        "mlp.up_proj.weight",
+        "mlp.down_proj.weight",
+    };
+
+    auto has_suffix = [](const std::string& name, const std::string& suffix) {
+        return name.size() >= suffix.size() &&
+               name.compare(name.size() - suffix.size(), suffix.size(), suffix) == 0;
+    };
+
+    std::map<std::string, TensorPtr> result;
+    for (const auto& [name, tensor] : weights) {
+        bool should_transpose = (name == "lm_head.weight");
+        for (const auto& suffix : proj_suffixes) {
+            if (has_suffix(name, suffix)) {
+                should_transpose = true;
+                break;
+            }
+        }
+
+        result[name] = should_transpose ? tensor->transpose()->contiguous() : tensor;
+    }
+
+    return result;
+}
 
 std::string format_prompt(
     const std::string& transcript,
@@ -62,7 +95,7 @@ TensorPtr model_forward(const std::vector<int>& token_ids, const std::map<std::s
 
     auto output_norm = rmsnorm(x, weights.at("model.norm.weight"), 1e-6f);
 
-    auto logits = output_norm->matmul(weights.at("lm_head.weight")->transpose());
+    auto logits = output_norm->matmul(weights.at("lm_head.weight"));
 
     return logits; // [seq_len, vocab_size]
 }
