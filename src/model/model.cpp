@@ -2,6 +2,7 @@
 #include "nn/embedding.h"
 #include "nn/layer.h"
 #include "nn/rmsnorm.h"
+#include <chrono>
 
 std::string format_prompt(
     const std::string& transcript,
@@ -66,18 +67,24 @@ TensorPtr model_forward(const std::vector<int>& token_ids, const std::map<std::s
     return logits; // [seq_len, vocab_size]
 }
 
-std::vector<int> generate(
+GenerationResult generate(
     const std::vector<int>& prompt_token_ids,
     const std::map<std::string, TensorPtr>& weights,
     size_t max_new_tokens
 ){
     std::vector<int> token_ids = prompt_token_ids;
+    std::vector<double> step_ms;
     size_t vocab_size = weights.at("lm_head.weight")->shape()[0];
 
-    for (size_t i = 0; i < max_new_tokens; ++i) {
-        auto logits = model_forward(token_ids, weights);
+    auto total_start = std::chrono::steady_clock::now();
 
-        //greedy 
+    for (size_t i = 0; i < max_new_tokens; ++i) {
+        auto step_start = std::chrono::steady_clock::now();
+        auto logits = model_forward(token_ids, weights);
+        auto step_end = std::chrono::steady_clock::now();
+        step_ms.push_back(std::chrono::duration<double, std::milli>(step_end - step_start).count());
+
+        //greedy
         size_t last_pos = token_ids.size() - 1;
         size_t best_id = 0;
 
@@ -95,9 +102,12 @@ std::vector<int> generate(
 
         //imend and endoftext both valid stopping
         if (best_id == 151645 || best_id == 151643){
-            break; 
+            break;
         }
     }
 
-    return token_ids;
+    auto total_end = std::chrono::steady_clock::now();
+    double total_ms = std::chrono::duration<double, std::milli>(total_end - total_start).count();
+
+    return GenerationResult{token_ids, step_ms, total_ms};
 }

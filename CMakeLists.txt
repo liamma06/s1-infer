@@ -26,6 +26,7 @@ add_library(s1infer_core STATIC
     src/model/model.cpp
 )
 target_include_directories(s1infer_core PUBLIC include)
+target_compile_definitions(s1infer_core PUBLIC BENCHMARKS_DIR="${CMAKE_SOURCE_DIR}/benchmarks")
 
 add_executable(test_m0 tests/test_m0_tensor.cpp)
 target_include_directories(test_m0 PRIVATE tests)

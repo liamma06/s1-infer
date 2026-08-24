@@ -1,3 +1,9 @@
 build/
 weights/*
 !weights/.gitkeep
+
+.venv/
+__pycache__/
+*.npy
+*.bin
+benchmarks/generation_log.txt
