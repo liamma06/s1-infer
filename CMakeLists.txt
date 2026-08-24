@@ -23,6 +23,7 @@ add_library(s1infer_core STATIC
     src/nn/attention.cpp
     src/nn/mlp.cpp
     src/nn/layer.cpp
+    src/model/model.cpp
 )
 target_include_directories(s1infer_core PUBLIC include)
 
@@ -63,6 +64,11 @@ target_link_libraries(test_mlp PRIVATE s1infer_core)
 add_executable(test_layer tests/test_layer.cpp)
 target_include_directories(test_layer PRIVATE tests)
 target_link_libraries(test_layer PRIVATE s1infer_core)
+
+add_executable(test_model tests/test_model.cpp)
+target_include_directories(test_model PRIVATE tests)
+target_link_libraries(test_model PRIVATE s1infer_core)
+target_compile_definitions(test_model PRIVATE WEIGHTS_DIR="${CMAKE_SOURCE_DIR}/weights")
 
 add_executable(demo src/demo.cpp)
 target_link_libraries(demo PRIVATE s1infer_core)
