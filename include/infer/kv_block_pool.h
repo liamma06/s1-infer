@@ -6,7 +6,7 @@
 class KVBlockPool {
     private:
         TensorPtr pool_k_;  
-        TensorPtr pool_v_;
+        TensorPtr pool_v_;  
 
         size_t num_heads_;
         size_t head_dim_;
@@ -27,6 +27,7 @@ class KVBlockPool {
         void append(size_t sequence_id, const TensorPtr& k, const TensorPtr& v);
         TensorPtr get_k(size_t sequence_id) const;
         TensorPtr get_v(size_t sequence_id) const;
+        size_t length(size_t sequence_id) const;
 
         void remove(size_t sequence_id);
 };
