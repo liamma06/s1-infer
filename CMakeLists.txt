@@ -24,7 +24,10 @@ add_library(s1infer_core STATIC
     src/nn/mlp.cpp
     src/nn/layer.cpp
     src/model/model.cpp
+    src/infer/kv_block_pool.cpp
 )
+
+
 target_include_directories(s1infer_core PUBLIC include)
 target_compile_definitions(s1infer_core PUBLIC BENCHMARKS_DIR="${CMAKE_SOURCE_DIR}/benchmarks")
 
@@ -70,6 +73,10 @@ add_executable(test_model tests/test_model.cpp)
 target_include_directories(test_model PRIVATE tests)
 target_link_libraries(test_model PRIVATE s1infer_core)
 target_compile_definitions(test_model PRIVATE WEIGHTS_DIR="${CMAKE_SOURCE_DIR}/weights")
+
+add_executable(test_kv_block_pool tests/test_kv_block_pool.cpp)
+target_include_directories(test_kv_block_pool PRIVATE tests)
+target_link_libraries(test_kv_block_pool PRIVATE s1infer_core)
 
 add_executable(demo src/demo.cpp)
 target_link_libraries(demo PRIVATE s1infer_core)
