@@ -30,4 +30,6 @@ class KVBlockPool {
         size_t length(size_t sequence_id) const;
 
         void remove(size_t sequence_id);
+
+        void truncate(size_t sequence_id, size_t keep_length);
 };

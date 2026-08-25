@@ -159,3 +159,34 @@ void KVBlockPool::remove(size_t sequence_id) {
 
     sequences_.erase(it);
 }
+
+void KVBlockPool::truncate(size_t sequence_id, size_t keep_length) {
+    auto it = sequences_.find(sequence_id);
+    if (it == sequences_.end()) {
+        throw std::runtime_error("KVBlockPool: Sequence ID not found");
+    }
+
+    SequenceState& state = it->second;
+
+    size_t current_length = length(sequence_id);
+    if (keep_length >= current_length) {
+        return;
+    }
+
+    size_t blocks_to_keep = 0;
+    size_t tokens_in_last_block = 0;
+    if (keep_length > 0) {
+        blocks_to_keep = (keep_length - 1) / block_size_ + 1;
+        tokens_in_last_block = keep_length - (blocks_to_keep - 1) * block_size_;
+    }
+
+    while (state.block_table.size() > blocks_to_keep) {
+        size_t block_index = state.block_table.back();
+        free_blocks_.push_back(block_index);
+        state.block_table.pop_back();
+    }
+
+    state.tokens_in_last_block = tokens_in_last_block;
+}
+
+    

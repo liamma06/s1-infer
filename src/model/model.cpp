@@ -37,8 +37,7 @@ std::map<std::string, TensorPtr> pretranspose_weights(const std::map<std::string
     return result;
 }
 
-std::string format_prompt(
-    const std::string& transcript,
+std::string format_prompt_prefix(
     const std::string& styling,
     const std::string& structure,
     const std::string& context
@@ -48,23 +47,36 @@ std::string format_prompt(
         You are a text normalizer for speech-to-text transcripts. The input begins with a control line specifying the styling, structure, and context settings; clean the transcript to match those settings and output only the cleaned text.<|im_end|>
         <|im_start|>user
         [Styling: semi-formal] [Structure: prose] [Context: general]
+
+        defined here: https://huggingface.co/superwhisper/s1-mini
+    */
+    return "<|im_start|>system\n"
+           "You are a text normalizer for speech-to-text transcripts. The input begins with a control line specifying the styling, structure, and context settings; clean the transcript to match those settings and output only the cleaned text.<|im_end|>\n"
+           "<|im_start|>user\n"
+           "[Styling: " + styling + "] [Structure: " + structure + "] [Context: " + context + "]\n";
+}
+
+std::string format_prompt_suffix(const std::string& transcript) {
+    /*
         <raw transcript><|im_end|>
         <|im_start|>assistant
         <think>
 
         </think>
 
-        defined here: https://huggingface.co/superwhisper/s1-mini
     */
-    std::string prompt = "<|im_start|>system\n"
-                         "You are a text normalizer for speech-to-text transcripts. The input begins with a control line specifying the styling, structure, and context settings; clean the transcript to match those settings and output only the cleaned text.<|im_end|>\n"
-                         "<|im_start|>user\n"
-                         "[Styling: " + styling + "] [Structure: " + structure + "] [Context: " + context + "]\n"
-                         + transcript + "<|im_end|>\n"
-                         "<|im_start|>assistant\n"
-                         "<think>\n\n</think>\n\n";
+    return transcript + "<|im_end|>\n"
+           "<|im_start|>assistant\n"
+           "<think>\n\n</think>\n\n";
+}
 
-    return prompt;
+std::string format_prompt(
+    const std::string& transcript,
+    const std::string& styling,
+    const std::string& structure,
+    const std::string& context
+) {
+    return format_prompt_prefix(styling, structure, context) + format_prompt_suffix(transcript);
 }
 
 
@@ -118,23 +130,18 @@ TensorPtr model_forward(
 }
 
 GenerationResult generate(
-    const std::vector<int>& prompt_token_ids,
+    const std::vector<int>& new_token_ids,
     const std::map<std::string, TensorPtr>& weights,
+    std::vector<KVBlockPool>& caches,
+    size_t sequence_id,
+    size_t prefix_length,
     size_t max_new_tokens
 ){
-    std::vector<int> token_ids = prompt_token_ids;
+    std::vector<int> token_ids = new_token_ids;
     std::vector<double> step_ms;
     size_t vocab_size = weights.at("lm_head.weight")->shape()[1];
 
-
-    std::vector<KVBlockPool> caches;
-    caches.reserve(28);
-    for (size_t layer = 0; layer < 28; layer++) {
-        caches.emplace_back(8, 128, 128, 16);
-    }
-    size_t sequence_id = 0; // only one generation active at a time
-
-    std::vector<int> next_input = prompt_token_ids; // first call: whole prompt
+    std::vector<int> next_input = new_token_ids; // first call: the new (uncached) tokens
 
     auto total_start = std::chrono::steady_clock::now();
 
@@ -165,9 +172,9 @@ GenerationResult generate(
         }
     }
 
-    // free cache since sequences don't connect 
+    // rewind to prefix 
     for (size_t layer = 0; layer < 28; layer++) {
-        caches[layer].remove(sequence_id);
+        caches[layer].truncate(sequence_id, prefix_length);
     }
 
     auto total_end = std::chrono::steady_clock::now();

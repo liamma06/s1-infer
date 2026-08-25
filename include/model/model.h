@@ -7,6 +7,15 @@
 
 std::map<std::string, TensorPtr> pretranspose_weights(const std::map<std::string, TensorPtr>& weights);
 
+//FIXED (preload into KVCACHE)
+std::string format_prompt_prefix(
+    const std::string& styling = "semi-formal",
+    const std::string& structure = "prose",
+    const std::string& context = "general"
+);
+
+std::string format_prompt_suffix(const std::string& transcript);
+
 std::string format_prompt(
     const std::string& transcript,
     const std::string& styling = "semi-formal",
@@ -29,7 +38,10 @@ struct GenerationResult {
 };
 
 GenerationResult generate(
-    const std::vector<int>& prompt_token_ids,
+    const std::vector<int>& new_token_ids,
     const std::map<std::string, TensorPtr>& weights,
+    std::vector<KVBlockPool>& caches,
+    size_t sequence_id,
+    size_t prefix_length,
     size_t max_new_tokens
 );
