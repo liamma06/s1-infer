@@ -1,4 +1,5 @@
 #pragma once
+#include "infer/kv_block_pool.h"
 #include "core/tensor.h"
 
 TensorPtr reshape_to_heads(const TensorPtr& input, size_t num_heads, size_t head_dim);
@@ -14,5 +15,6 @@ TensorPtr self_attention(
     const TensorPtr& o_proj_weight,
     const TensorPtr& q_norm_weight,  
     const TensorPtr& k_norm_weight,  
-    size_t start_pos                 
+    KVBlockPool& cache,
+    size_t sequence_id                 
 );

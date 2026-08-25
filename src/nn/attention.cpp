@@ -81,14 +81,16 @@ TensorPtr self_attention(
     const TensorPtr& v_proj_weight,
     const TensorPtr& o_proj_weight,
     const TensorPtr& q_norm_weight,  
-    const TensorPtr& k_norm_weight,  
-    size_t start_pos                 
+    const TensorPtr& k_norm_weight, 
+    KVBlockPool& cache, 
+    size_t sequence_id                 
 ){
     /*
-
         q_proj_weight: [emb_dim, num_q_heads * head_dim] -> [1024, 2048]
         k/v proj_weight : [1024, 1024]
     */
+
+    size_t curr_pos = cache.length(sequence_id);
 
     TensorPtr Q_flat, K_flat, V_flat;
     Q_flat = x->matmul(q_proj_weight);
@@ -100,13 +102,19 @@ TensorPtr self_attention(
     auto K_heads = reshape_to_heads(K_flat, 8, 128);
     auto V_heads = reshape_to_heads(V_flat, 8, 128);
 
+
     Q_heads = rmsnorm(Q_heads, q_norm_weight, 1e-6f);
-    Q_heads = apply_rope(Q_heads, start_pos);
+    Q_heads = apply_rope(Q_heads, curr_pos);
 
     K_heads = rmsnorm(K_heads, k_norm_weight, 1e-6f);
-    K_heads = apply_rope(K_heads, start_pos);
+    K_heads = apply_rope(K_heads, curr_pos);
 
-    auto attn_out = GQA_attention(Q_heads, K_heads, V_heads, 16, 8, 128);
+    cache.append(sequence_id, K_heads, V_heads);
+
+    TensorPtr full_k = cache.get_k(sequence_id);
+    TensorPtr full_v = cache.get_v(sequence_id);
+
+    auto attn_out = GQA_attention(Q_heads, full_k, full_v, 16, 8, 128);
 
     size_t seq_len = x->shape()[0];
 
