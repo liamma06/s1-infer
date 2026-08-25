@@ -17,27 +17,28 @@ TensorPtr GQA_attention(const TensorPtr& Q, const TensorPtr& K, const TensorPtr&
     */
     
     size_t group_size = num_q_heads / num_kv_heads; //2 defined already 
-    size_t seq_len = Q->shape()[0];
+    size_t q_len = Q->shape()[0];
+    size_t kv_len = K->shape()[0];
 
-    auto output = Tensor::create({seq_len, num_q_heads, head_dim});
+    auto output = Tensor::create({q_len, num_q_heads, head_dim});
     
 
     for (size_t h =0; h < num_q_heads; h++){
        
         //only THAT Q head for THAT group of K/V heads 
-        auto Q_slice = Tensor::create({seq_len, head_dim});
-        for (size_t i = 0; i < seq_len; i++) {
+        auto Q_slice = Tensor::create({q_len, head_dim});
+        for (size_t i = 0; i < q_len; i++) {
             for (size_t j = 0; j < head_dim; j++) {
                 Q_slice->at({i, j}) = Q->at({i, h, j});
             }
         }
 
-        auto K_slice = Tensor::create({seq_len, head_dim});
-        auto V_slice = Tensor::create({seq_len, head_dim});
+        auto K_slice = Tensor::create({kv_len, head_dim});
+        auto V_slice = Tensor::create({kv_len, head_dim});
 
         size_t kv_head = h / group_size; //which K/V head to use for this Q head
 
-        for (size_t i = 0; i < seq_len; i++) {
+        for (size_t i = 0; i < kv_len; i++) {
             for (size_t j = 0; j < head_dim; j++) {
                 K_slice->at({i, j}) = K->at({i, kv_head, j});
                 V_slice->at({i, j}) = V->at({i, kv_head, j});
@@ -45,12 +46,14 @@ TensorPtr GQA_attention(const TensorPtr& Q, const TensorPtr& K, const TensorPtr&
         }
 
         auto attn_scores = Q_slice->matmul(K_slice->transpose());
-        auto attn_scores_scaled = attn_scores->mul(Tensor::create({seq_len, seq_len}, 1.0f / std::sqrt(static_cast<scalar_t>(head_dim))));
+        auto attn_scores_scaled = attn_scores->mul(Tensor::create({q_len, kv_len}, 1.0f / std::sqrt(static_cast<scalar_t>(head_dim))));
 
         //mask 
-        for (size_t i = 0; i < seq_len; i++) {
-            for (size_t j = 0; j < seq_len; j++) {
-                if (j > i) {
+        for (size_t i = 0; i < q_len; i++) {
+            for (size_t j = 0; j < kv_len; j++) {
+                size_t offset = (kv_len - q_len) + i;
+
+                if (j > offset) {
                     attn_scores_scaled->at({i, j}) = -std::numeric_limits<scalar_t>::infinity();
                 }
             }
@@ -61,7 +64,7 @@ TensorPtr GQA_attention(const TensorPtr& Q, const TensorPtr& K, const TensorPtr&
         auto attn_out_slice = attn_probs->matmul(V_slice);
 
         //copy back at right HEAD 
-        for (size_t i = 0; i < seq_len; i++) {
+        for (size_t i = 0; i < q_len; i++) {
             for (size_t j = 0; j < head_dim; j++) {
                 output->at({i, h, j}) = attn_out_slice->at({i, j});
             }
