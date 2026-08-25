@@ -130,7 +130,7 @@ GenerationResult generate(
     std::vector<KVBlockPool> caches;
     caches.reserve(28);
     for (size_t layer = 0; layer < 28; layer++) {
-        caches.emplace_back(8, 128, 128, 6);
+        caches.emplace_back(8, 128, 128, 16);
     }
     size_t sequence_id = 0; // only one generation active at a time
 
