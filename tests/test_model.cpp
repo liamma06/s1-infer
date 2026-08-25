@@ -13,7 +13,13 @@ TEST_CASE("model_forward runs end-to-end on real weights and produces finite log
     std::vector<int> token_ids = tokenizer.encode("Hello, world!");
     REQUIRE(token_ids.size() > 0);
 
-    TensorPtr logits = model_forward(token_ids, weights);
+    std::vector<KVBlockPool> caches;
+    caches.reserve(28);
+    for (size_t layer = 0; layer < 28; layer++) {
+        caches.emplace_back(8, 128, /*max_blocks=*/4, /*block_size=*/16);
+    }
+
+    TensorPtr logits = model_forward(token_ids, weights, caches, /*sequence_id=*/0);
 
     REQUIRE(logits->shape().size() == 2);
     CHECK(logits->shape()[0] == token_ids.size());

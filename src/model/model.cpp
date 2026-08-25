@@ -68,11 +68,17 @@ std::string format_prompt(
 }
 
 
-TensorPtr model_forward(const std::vector<int>& token_ids, const std::map<std::string, TensorPtr>& weights, bool last_token_only) {
+TensorPtr model_forward(
+    const std::vector<int>& token_ids,
+    const std::map<std::string, TensorPtr>& weights,
+    std::vector<KVBlockPool>& caches,
+    size_t sequence_id,
+    bool last_token_only
+) {
 
     auto x = embedding_lookup(weights.at("model.embed_tokens.weight"), token_ids);
 
-    //28 layers set in model 
+    //28 layers set in model
     for (size_t layer = 0; layer < 28; ++layer){
         std::string layer_prefix = "model.layers." + std::to_string(layer) + ".";
 
@@ -89,7 +95,8 @@ TensorPtr model_forward(const std::vector<int>& token_ids, const std::map<std::s
             weights.at(layer_prefix + "mlp.gate_proj.weight"),
             weights.at(layer_prefix + "mlp.up_proj.weight"),
             weights.at(layer_prefix + "mlp.down_proj.weight"),
-            0
+            caches[layer],
+            sequence_id
         );
     }
 
@@ -115,15 +122,25 @@ GenerationResult generate(
     const std::map<std::string, TensorPtr>& weights,
     size_t max_new_tokens
 ){
-    std::vector<int> token_ids = prompt_token_ids;
+    std::vector<int> token_ids = prompt_token_ids; 
     std::vector<double> step_ms;
     size_t vocab_size = weights.at("lm_head.weight")->shape()[0];
+
+
+    std::vector<KVBlockPool> caches;
+    caches.reserve(28);
+    for (size_t layer = 0; layer < 28; layer++) {
+        caches.emplace_back(8, 128, 128, 6);
+    }
+    size_t sequence_id = 0; // only one generation active at a time
+
+    std::vector<int> next_input = prompt_token_ids; // first call: whole prompt
 
     auto total_start = std::chrono::steady_clock::now();
 
     for (size_t i = 0; i < max_new_tokens; ++i) {
         auto step_start = std::chrono::steady_clock::now();
-        auto logits = model_forward(token_ids, weights, true);
+        auto logits = model_forward(next_input, weights, caches, sequence_id, true);
         auto step_end = std::chrono::steady_clock::now();
         step_ms.push_back(std::chrono::duration<double, std::milli>(step_end - step_start).count());
 
@@ -140,12 +157,17 @@ GenerationResult generate(
         }
 
         token_ids.push_back(static_cast<int>(best_id));
-
+        next_input = {static_cast<int>(best_id)}; 
 
         //imend and endoftext both valid stopping
         if (best_id == 151645 || best_id == 151643){
             break;
         }
+    }
+
+    // free cache since sequences don't connect 
+    for (size_t layer = 0; layer < 28; layer++) {
+        caches[layer].remove(sequence_id);
     }
 
     auto total_end = std::chrono::steady_clock::now();

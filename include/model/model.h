@@ -1,5 +1,6 @@
-#pragma once 
+#pragma once
 #include "core/tensor.h"
+#include "infer/kv_block_pool.h"
 #include <map>
 #include <string>
 #include <vector>
@@ -13,7 +14,13 @@ std::string format_prompt(
     const std::string& context = "general"
 );
 
-TensorPtr model_forward(const std::vector<int>& token_ids, const std::map<std::string, TensorPtr>& weights, bool last_token_only = false);
+TensorPtr model_forward(
+    const std::vector<int>& token_ids,
+    const std::map<std::string, TensorPtr>& weights,
+    std::vector<KVBlockPool>& caches,
+    size_t sequence_id,
+    bool last_token_only = false
+);
 
 struct GenerationResult {
     std::vector<int> token_ids;   
