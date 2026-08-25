@@ -26,6 +26,8 @@ TEST_CASE("layer_forward is identity when both norm weights are zero") {
     TensorPtr up_proj = Tensor::create({1024, 3072}, 0.5f);
     TensorPtr down_proj = Tensor::create({3072, 1024}, 0.5f);
 
+    KVBlockPool cache(8, 128, /*max_blocks=*/4, /*block_size=*/4);
+
     TensorPtr out = layer_forward(
         x,
         zero_norm,
@@ -33,7 +35,8 @@ TEST_CASE("layer_forward is identity when both norm weights are zero") {
         zero_head_norm, zero_head_norm,
         zero_norm,
         gate_proj, up_proj, down_proj,
-        0
+        cache,
+        /*sequence_id=*/0
     );
 
     CHECK(out->shape()[0] == seq_len);
@@ -71,6 +74,8 @@ TEST_CASE("layer_forward preserves shape with real per-layer weight dims") {
     TensorPtr up_proj = Tensor::create({1024, 3072}, 0.01f);
     TensorPtr down_proj = Tensor::create({3072, 1024}, 0.01f);
 
+    KVBlockPool cache(8, 128, /*max_blocks=*/4, /*block_size=*/4);
+
     TensorPtr out = layer_forward(
         x,
         input_norm,
@@ -78,7 +83,8 @@ TEST_CASE("layer_forward preserves shape with real per-layer weight dims") {
         head_norm, head_norm,
         post_attn_norm,
         gate_proj, up_proj, down_proj,
-        0
+        cache,
+        /*sequence_id=*/0
     );
 
     CHECK(out->shape()[0] == seq_len);

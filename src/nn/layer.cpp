@@ -23,10 +23,11 @@ TensorPtr layer_forward(
     const TensorPtr& mlp_up_proj_weight,
     const TensorPtr& mlp_down_proj_weight,
 
-    size_t start_pos
+    KVBlockPool& cache,
+    size_t sequence_id
 ){
     auto residual = input;
-    
+
     //attention
     auto x_norm = rmsnorm(input, input_layernorm_weight, 1e-6f);
     auto attention_out = self_attention(
@@ -37,7 +38,8 @@ TensorPtr layer_forward(
         attention_o_proj_weight,
         attention_q_norm_weight,
         attention_k_norm_weight,
-        start_pos
+        cache,
+        sequence_id
     );
     auto x = residual->add(attention_out);
 

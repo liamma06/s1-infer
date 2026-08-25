@@ -1,5 +1,6 @@
-#pragma once 
+#pragma once
 #include "core/tensor.h"
+#include "infer/kv_block_pool.h"
 
 TensorPtr layer_forward(
     const TensorPtr& input, 
@@ -22,6 +23,7 @@ TensorPtr layer_forward(
     const TensorPtr& mlp_up_proj_weight,
     const TensorPtr& mlp_down_proj_weight,
 
-    size_t start_pos
+    KVBlockPool& cache,
+    size_t sequence_id
 
 );
