@@ -122,9 +122,9 @@ GenerationResult generate(
     const std::map<std::string, TensorPtr>& weights,
     size_t max_new_tokens
 ){
-    std::vector<int> token_ids = prompt_token_ids; 
+    std::vector<int> token_ids = prompt_token_ids;
     std::vector<double> step_ms;
-    size_t vocab_size = weights.at("lm_head.weight")->shape()[0];
+    size_t vocab_size = weights.at("lm_head.weight")->shape()[1];
 
 
     std::vector<KVBlockPool> caches;

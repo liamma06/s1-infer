@@ -78,6 +78,16 @@ add_executable(test_kv_block_pool tests/test_kv_block_pool.cpp)
 target_include_directories(test_kv_block_pool PRIVATE tests)
 target_link_libraries(test_kv_block_pool PRIVATE s1infer_core)
 
+add_executable(test_kv_cache_correctness tests/test_kv_cache_correctness.cpp)
+target_include_directories(test_kv_cache_correctness PRIVATE tests)
+target_link_libraries(test_kv_cache_correctness PRIVATE s1infer_core)
+target_compile_definitions(test_kv_cache_correctness PRIVATE WEIGHTS_DIR="${CMAKE_SOURCE_DIR}/weights")
+
+add_executable(test_prompt_ids_debug tests/test_prompt_ids_debug.cpp)
+target_include_directories(test_prompt_ids_debug PRIVATE tests)
+target_link_libraries(test_prompt_ids_debug PRIVATE s1infer_core)
+target_compile_definitions(test_prompt_ids_debug PRIVATE WEIGHTS_DIR="${CMAKE_SOURCE_DIR}/weights")
+
 add_executable(demo src/demo.cpp)
 target_link_libraries(demo PRIVATE s1infer_core)
 target_compile_definitions(demo PRIVATE WEIGHTS_DIR="${CMAKE_SOURCE_DIR}/weights")

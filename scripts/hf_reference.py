@@ -72,6 +72,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["normalize", "raw_logits"], default="raw_logits")
     parser.add_argument("--prompt", default="Hello, world!")
+    parser.add_argument("--transcript", default="so um i need to like send the the report by uh friday no wait make that thursday")
     parser.add_argument("--out", default=os.path.join(os.path.dirname(__file__), "hf_logits.npy"))
     args = parser.parse_args()
 
@@ -80,5 +81,4 @@ if __name__ == "__main__":
     if args.mode == "raw_logits":
         raw_logits(tok, model, args.prompt, args.out)
     else:
-        raw = "so um i need to like send the the report by uh friday no wait make that thursday"
-        print(normalize(tok, model, raw))
+        print(normalize(tok, model, args.transcript))
