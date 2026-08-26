@@ -34,6 +34,13 @@ void matmul_avx2_range(const scalar_t* a, const scalar_t* b, scalar_t* out,
 }
 
 void Tensor::matmul_avx2(const scalar_t* a, const scalar_t* b, scalar_t* out, size_t M, size_t K, size_t N) {
+    constexpr size_t kThreadingThreshold = 512; // below this, threading overhead costs more than it saves
+
+    if (N < kThreadingThreshold) {
+        matmul_avx2_range(a, b, out, M, K, N, 0, N);
+        return;
+    }
+
     get_pool().parallel_for(N, [&](size_t col_start, size_t col_end) {
         matmul_avx2_range(a, b, out, M, K, N, col_start, col_end);
     });

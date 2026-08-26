@@ -94,3 +94,6 @@ add_executable(demo src/demo.cpp)
 target_link_libraries(demo PRIVATE s1infer_core)
 target_compile_definitions(demo PRIVATE WEIGHTS_DIR="${CMAKE_SOURCE_DIR}/weights")
 target_compile_definitions(demo PRIVATE SCRIPTS_DIR="${CMAKE_SOURCE_DIR}/scripts")
+
+add_executable(bench_thread_pool benchmarks/bench_thread_pool.cpp)
+target_link_libraries(bench_thread_pool PRIVATE s1infer_core)
