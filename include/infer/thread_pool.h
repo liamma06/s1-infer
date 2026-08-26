@@ -25,5 +25,5 @@ class ThreadPool {
         std::vector<std::pair<size_t, size_t>> ranges_;
 
         size_t tasks_remaining_ = 0;
-        bool work_ready_ = false;
+        size_t generation_ = 0; 
 };
