@@ -23,8 +23,10 @@ add_library(s1infer_core STATIC
     src/nn/attention.cpp
     src/nn/mlp.cpp
     src/nn/layer.cpp
+    src/nn/matmul.cpp
     src/model/model.cpp
     src/infer/kv_block_pool.cpp
+    src/infer/thread_pool.cpp
 )
 
 

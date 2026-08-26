@@ -286,29 +286,6 @@ void Tensor::matmul_scalar(const scalar_t* a, const scalar_t* b, scalar_t* out, 
     }
 }
 
-void Tensor::matmul_avx2(const scalar_t* a, const scalar_t* b, scalar_t* out, size_t M, size_t K, size_t N) {
-    __m256 b_vec, prod_vec, a_broadcast, sum_vec;
-
-    for (size_t i = 0; i < M; i++) {
-        for (size_t j = 0; j + 8 <= N; j += 8) {
-            sum_vec = _mm256_setzero_ps();
-            for (size_t k = 0; k < K; k++) {
-                a_broadcast = _mm256_set1_ps(a[i * K + k]);
-                b_vec = _mm256_loadu_ps(&b[k * N + j]);
-                prod_vec = _mm256_mul_ps(a_broadcast, b_vec);
-                sum_vec = _mm256_add_ps(sum_vec, prod_vec);
-            }
-            _mm256_storeu_ps(&out[i * N + j], sum_vec);
-        }
-        for (size_t j = N - (N % 8); j < N; j++) {
-            scalar_t sum = 0.0f;
-            for (size_t k = 0; k < K; k++)
-                sum += a[i * K + k] * b[k * N + j];
-            out[i * N + j] = sum;
-        }
-    }
-}
-
 TensorPtr Tensor::matmul(const TensorPtr& other) const {
     assert(rank() == other->rank() && (rank() == 2 || rank() == 3) && "Both tensors must be rank 2 or rank 3, and match each other");
     assert(shape_[rank() - 1] == other->shape()[rank() - 2] && "Inner dimensions must match for matrix multiplication");
