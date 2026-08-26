@@ -13,19 +13,19 @@ TensorPtr reshape_to_heads(const TensorPtr& input, size_t num_heads, size_t head
 TensorPtr GQA_attention(const TensorPtr& Q, const TensorPtr& K, const TensorPtr& V, size_t num_q_heads, size_t num_kv_heads, size_t head_dim) {
     /*
         QKV = [seq_len, num_heads, head_dim]
-        https://www.geeksforgeeks.org/deep-learning/grouped-query-attention-gqa/ 
+        https://www.geeksforgeeks.org/deep-learning/grouped-query-attention-gqa/
     */
-    
-    size_t group_size = num_q_heads / num_kv_heads; //2 defined already 
+
+    size_t group_size = num_q_heads / num_kv_heads; //2 defined already
     size_t q_len = Q->shape()[0];
     size_t kv_len = K->shape()[0];
 
     auto output = Tensor::create({q_len, num_q_heads, head_dim});
-    
+
 
     for (size_t h =0; h < num_q_heads; h++){
-       
-        //only THAT Q head for THAT group of K/V heads 
+
+        //only THAT Q head for THAT group of K/V heads
         auto Q_slice = Tensor::create({q_len, head_dim});
         for (size_t i = 0; i < q_len; i++) {
             for (size_t j = 0; j < head_dim; j++) {
@@ -48,7 +48,7 @@ TensorPtr GQA_attention(const TensorPtr& Q, const TensorPtr& K, const TensorPtr&
         auto attn_scores = Q_slice->matmul(K_slice->transpose());
         auto attn_scores_scaled = attn_scores->mul(Tensor::create({q_len, kv_len}, 1.0f / std::sqrt(static_cast<scalar_t>(head_dim))));
 
-        //mask 
+        //mask
         for (size_t i = 0; i < q_len; i++) {
             for (size_t j = 0; j < kv_len; j++) {
                 size_t offset = (kv_len - q_len) + i;
@@ -63,7 +63,7 @@ TensorPtr GQA_attention(const TensorPtr& Q, const TensorPtr& K, const TensorPtr&
 
         auto attn_out_slice = attn_probs->matmul(V_slice);
 
-        //copy back at right HEAD 
+        //copy back at right HEAD
         for (size_t i = 0; i < q_len; i++) {
             for (size_t j = 0; j < head_dim; j++) {
                 output->at({i, h, j}) = attn_out_slice->at({i, j});
@@ -75,15 +75,15 @@ TensorPtr GQA_attention(const TensorPtr& Q, const TensorPtr& K, const TensorPtr&
 }
 
 TensorPtr self_attention(
-    const TensorPtr& x,              
+    const TensorPtr& x,
     const TensorPtr& q_proj_weight,
     const TensorPtr& k_proj_weight,
     const TensorPtr& v_proj_weight,
     const TensorPtr& o_proj_weight,
-    const TensorPtr& q_norm_weight,  
-    const TensorPtr& k_norm_weight, 
-    KVBlockPool& cache, 
-    size_t sequence_id                 
+    const TensorPtr& q_norm_weight,
+    const TensorPtr& k_norm_weight,
+    KVBlockPool& cache,
+    size_t sequence_id
 ){
     /*
         q_proj_weight: [emb_dim, num_q_heads * head_dim] -> [1024, 2048]

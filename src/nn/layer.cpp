@@ -4,7 +4,7 @@
 #include "nn/mlp.h"
 
 TensorPtr layer_forward(
-    const TensorPtr& input, 
+    const TensorPtr& input,
 
     const TensorPtr& input_layernorm_weight,
 
@@ -15,7 +15,7 @@ TensorPtr layer_forward(
     const TensorPtr& attention_o_proj_weight,
     const TensorPtr& attention_q_norm_weight,
     const TensorPtr& attention_k_norm_weight,
- 
+
     const TensorPtr& post_attention_layernorm_weight,
 
     //mlp
