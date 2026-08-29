@@ -34,3 +34,20 @@ TensorPtr swiglu_mlp(
     auto output = hidden->matmul(down_proj_weight);
     return output;
 }
+
+TensorPtr swiglu_mlp_quantized(
+    const TensorPtr& x,
+    const QuantizedTensor& gate_proj_weight,
+    const QuantizedTensor& up_proj_weight,
+    const QuantizedTensor& down_proj_weight
+) {
+    auto up = matmul_quantized(x, up_proj_weight);
+    auto gate = matmul_quantized(x, gate_proj_weight);
+
+    gate = silu(gate);
+
+    auto hidden = gate->mul(up);
+
+    auto output = matmul_quantized(hidden, down_proj_weight);
+    return output;
+}

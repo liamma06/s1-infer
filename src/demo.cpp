@@ -92,7 +92,7 @@ int main() {
         std::vector<int> new_ids = tokenizer.encode(suffix_text);
 
         size_t max_new_tokens = static_cast<size_t>(1.3 * (prefix_length + new_ids.size())) + 32;
-        GenerationResult result = generate(new_ids, weights, caches, sequence_id, prefix_length, max_new_tokens);
+        GenerationResult result = generate_quantized(new_ids, weights, quantized_weights, caches, sequence_id, prefix_length, max_new_tokens);
 
         // only decode the newly generated tokens, not the input tokens
         std::vector<int> gen_ids(result.token_ids.begin() + new_ids.size(), result.token_ids.end());
@@ -102,6 +102,11 @@ int main() {
 
         std::string output = tokenizer.decode(gen_ids);
         std::cout << output << "\n";
+
+        size_t num_generated = result.token_ids.size() - new_ids.size();
+        double tokens_per_sec_console = num_generated / (result.total_ms / 1000.0);
+        std::cout << "[timing] " << num_generated << " tokens in "
+                   << result.total_ms << " ms (" << tokens_per_sec_console << " tok/s)\n";
 
         // Log for benchmarking
         std::ofstream log(std::string(BENCHMARKS_DIR) + "/generation_log.txt", std::ios::app);
