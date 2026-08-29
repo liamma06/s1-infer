@@ -27,6 +27,7 @@ add_library(s1infer_core STATIC
     src/model/model.cpp
     src/infer/kv_block_pool.cpp
     src/infer/thread_pool.cpp
+    src/quantized_tensor.cpp
 )
 
 
@@ -89,6 +90,10 @@ add_executable(test_prompt_ids_debug tests/test_prompt_ids_debug.cpp)
 target_include_directories(test_prompt_ids_debug PRIVATE tests)
 target_link_libraries(test_prompt_ids_debug PRIVATE s1infer_core)
 target_compile_definitions(test_prompt_ids_debug PRIVATE WEIGHTS_DIR="${CMAKE_SOURCE_DIR}/weights")
+
+add_executable(test_quantized_tensor tests/test_quantized_tensor.cpp)
+target_include_directories(test_quantized_tensor PRIVATE tests)
+target_link_libraries(test_quantized_tensor PRIVATE s1infer_core)
 
 add_executable(demo src/demo.cpp)
 target_link_libraries(demo PRIVATE s1infer_core)
