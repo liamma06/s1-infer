@@ -106,7 +106,7 @@ int main() {
         size_t num_generated = result.token_ids.size() - new_ids.size();
         double tokens_per_sec_console = num_generated / (result.total_ms / 1000.0);
         std::cout << "[timing] " << num_generated << " tokens in "
-                   << result.total_ms << " ms (" << tokens_per_sec_console << " tok/s)\n";
+                    << result.total_ms << " ms (" << tokens_per_sec_console << " tok/s)\n";
 
         // Log for benchmarking
         std::ofstream log(std::string(BENCHMARKS_DIR) + "/generation_log.txt", std::ios::app);
