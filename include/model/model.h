@@ -42,9 +42,12 @@ TensorPtr model_forward_quantized(
 );
 
 struct GenerationResult {
-    std::vector<int> token_ids;   
-    std::vector<double> step_ms; 
-    double total_ms;             
+    std::vector<int> token_ids;
+    std::vector<double> step_ms;
+    double total_ms;
+
+    double ttft_ms; 
+    double tpot_ms; 
 };
 
 GenerationResult generate(

@@ -179,6 +179,19 @@ TensorPtr model_forward_quantized(
     return logits; // [seq_len, vocab_size]
 }
 
+namespace {
+void compute_ttft_tpot(const std::vector<double>& step_ms, double& ttft_ms, double& tpot_ms) {
+    ttft_ms = step_ms.empty() ? 0.0 : step_ms[0];
+
+    tpot_ms = 0.0;
+    if (step_ms.size() > 1) {
+        double sum = 0.0;
+        for (size_t i = 1; i < step_ms.size(); i++) sum += step_ms[i];
+        tpot_ms = sum / (step_ms.size() - 1);
+    }
+}
+} 
+
 GenerationResult generate(
     const std::vector<int>& new_token_ids,
     const std::map<std::string, TensorPtr>& weights,
@@ -230,7 +243,10 @@ GenerationResult generate(
     auto total_end = std::chrono::steady_clock::now();
     double total_ms = std::chrono::duration<double, std::milli>(total_end - total_start).count();
 
-    return GenerationResult{token_ids, step_ms, total_ms};
+    double ttft_ms, tpot_ms;
+    compute_ttft_tpot(step_ms, ttft_ms, tpot_ms);
+
+    return GenerationResult{token_ids, step_ms, total_ms, ttft_ms, tpot_ms};
 }
 
 GenerationResult generate_quantized(
@@ -285,5 +301,8 @@ GenerationResult generate_quantized(
     auto total_end = std::chrono::steady_clock::now();
     double total_ms = std::chrono::duration<double, std::milli>(total_end - total_start).count();
 
-    return GenerationResult{token_ids, step_ms, total_ms};
+    double ttft_ms, tpot_ms;
+    compute_ttft_tpot(step_ms, ttft_ms, tpot_ms);
+
+    return GenerationResult{token_ids, step_ms, total_ms, ttft_ms, tpot_ms};
 }

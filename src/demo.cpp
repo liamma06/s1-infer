@@ -107,6 +107,7 @@ int main() {
         double tokens_per_sec_console = num_generated / (result.total_ms / 1000.0);
         std::cout << "[timing] " << num_generated << " tokens in "
                     << result.total_ms << " ms (" << tokens_per_sec_console << " tok/s)\n";
+        std::cout << "[timing] TTFT: " << result.ttft_ms << " ms, TPOT: " << result.tpot_ms << " ms/token\n";
 
         // Log for benchmarking
         std::ofstream log(std::string(BENCHMARKS_DIR) + "/generation_log.txt", std::ios::app);
@@ -121,6 +122,8 @@ int main() {
         log << "total time: " << result.total_ms << " ms\n";
         double tokens_per_sec = (result.token_ids.size() - new_ids.size()) / (result.total_ms / 1000.0);
         log << "tokens/sec: " << tokens_per_sec << "\n";
+        log << "TTFT: " << result.ttft_ms << " ms\n";
+        log << "TPOT: " << result.tpot_ms << " ms/token\n";
         log << "response: " << output << "\n\n";
         log.close();
     }
