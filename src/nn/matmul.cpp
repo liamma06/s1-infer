@@ -8,9 +8,6 @@ ThreadPool& get_pool(){
     return pool;
 }
 
-void matmul_avx2_range_blocked(const scalar_t* a, const scalar_t* b, scalar_t* out,
-                                size_t M, size_t K, size_t N,
-                                size_t col_start, size_t col_end);
 
 void matmul_avx2_range(const scalar_t* a, const scalar_t* b, scalar_t* out,
                         size_t M, size_t K, size_t N,
@@ -38,18 +35,6 @@ void matmul_avx2_range(const scalar_t* a, const scalar_t* b, scalar_t* out,
     }
 }
 
-void Tensor::matmul_avx2(const scalar_t* a, const scalar_t* b, scalar_t* out, size_t M, size_t K, size_t N) {
-    constexpr size_t kThreadingThreshold = 512; // below this, threading overhead costs more than it saves
-
-    if (N < kThreadingThreshold) {
-        matmul_avx2_range(a, b, out, M, K, N, 0, N);
-        return;
-    }
-
-    get_pool().parallel_for(N, [&](size_t col_start, size_t col_end) {
-        matmul_avx2_range_blocked(a, b, out, M, K, N, col_start, col_end);
-    });
-}
 
 void matmul_avx2_range_blocked(
     const scalar_t* a, 
@@ -59,17 +44,16 @@ void matmul_avx2_range_blocked(
     size_t col_start, size_t col_end
 ){
     /*
-        Grab blocks by columns full K height. 
+        Grab blocks by columns full K height.
         https://www.youtube.com/watch?v=G92BCtfTwOE&t=537s
 
         KBlock:
-            - MAX length of K -> 3072(mlp hidden layer) 
-            -4 bytes -> float size 
-            - 80 x 3072 x 4 = 984 KB 
-            - which is small enough to fit inside L2 (1.2MB)
+            - MAX length of K -> 3072(mlp hidden layer)
+            -4 bytes -> float size
+            - 40 x 3072 x 4 = 492 KB
     */
 
-    const size_t KBlockN = 80; 
+    const size_t KBlockN = 40;
 
    for (size_t block_start = col_start; block_start < col_end; block_start += KBlockN){
         size_t block_end = std::min(block_start + KBlockN, col_end);
@@ -99,3 +83,18 @@ void matmul_avx2_range_blocked(
    }
 
 }
+
+void Tensor::matmul_avx2(const scalar_t* a, const scalar_t* b, scalar_t* out, size_t M, size_t K, size_t N) {
+    constexpr size_t kThreadingThreshold = 512; 
+
+    if (N < kThreadingThreshold) {
+        matmul_avx2_range(a, b, out, M, K, N, 0, N);
+        return;
+    }
+
+    get_pool().parallel_for(N, [&](size_t col_start, size_t col_end) {
+        matmul_avx2_range_blocked(a, b, out, M, K, N, col_start, col_end);
+    });
+}
+
+

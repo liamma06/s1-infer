@@ -1,14 +1,55 @@
 #include "tokenizer/bpe_tokenizer.h"
 #include "io/safetensors.h"
 #include "model/model.h"
+#include "core/quantized_tensor.h"
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <chrono>
+
+bool load_prefix_cache(std::vector<KVBlockPool>& caches, size_t sequence_id, size_t prefix_length, const std::string& path) {
+    std::ifstream in(path, std::ios::binary);
+    if (!in) return false;
+
+    const size_t num_heads = 8, head_dim = 128;
+    const size_t tensor_floats = prefix_length * num_heads * head_dim;
+
+    for (size_t layer = 0; layer < caches.size(); layer++) {
+        std::vector<scalar_t> k_data(tensor_floats), v_data(tensor_floats);
+        in.read(reinterpret_cast<char*>(k_data.data()), tensor_floats * sizeof(scalar_t));
+        in.read(reinterpret_cast<char*>(v_data.data()), tensor_floats * sizeof(scalar_t));
+        if (!in) return false;
+
+        TensorPtr k = Tensor::create({prefix_length, num_heads, head_dim});
+        TensorPtr v = Tensor::create({prefix_length, num_heads, head_dim});
+        k->mutable_data() = std::move(k_data);
+        v->mutable_data() = std::move(v_data);
+
+        caches[layer].append(sequence_id, k, v);
+    }
+    return true;
+}
+
+void save_prefix_cache(std::vector<KVBlockPool>& caches, size_t sequence_id, const std::string& path) {
+    std::ofstream out(path, std::ios::binary);
+    for (size_t layer = 0; layer < caches.size(); layer++) {
+        TensorPtr k = caches[layer].get_k(sequence_id);
+        TensorPtr v = caches[layer].get_v(sequence_id);
+        out.write(reinterpret_cast<const char*>(k->data().data()), k->numel() * sizeof(scalar_t));
+        out.write(reinterpret_cast<const char*>(v->data().data()), v->numel() * sizeof(scalar_t));
+    }
+}
 
 int main() {
     auto weights = load_safetensors(std::string(WEIGHTS_DIR) + "/model.safetensors");
     weights = pretranspose_weights(weights);
     BpeTokenizer tokenizer(std::string(WEIGHTS_DIR) + "/tokenizer.json");
+
+    std::map<std::string, QuantizedTensor> quantized_weights;
+    for (const auto& [name, tensor] : weights) {
+        if (tensor->shape().size() != 2) continue;
+        quantized_weights[name] = quantize_tensor(*tensor);
+    }
 
     //preload prefix into KVcache
     std::vector<KVBlockPool> caches;
@@ -20,7 +61,23 @@ int main() {
 
     std::string prefix_text = format_prompt_prefix();
     std::vector<int> prefix_ids = tokenizer.encode(prefix_text);
-    model_forward(prefix_ids, weights, caches, sequence_id);
+    std::string prefix_cache_path = std::string(WEIGHTS_DIR) + "/prefix_kv_cache.bin";
+
+    std::cerr << "[timing] starting prefix warm-up (" << prefix_ids.size() << " tokens)...\n" << std::flush;
+    auto warm_start = std::chrono::high_resolution_clock::now();
+
+    if (load_prefix_cache(caches, sequence_id, prefix_ids.size(), prefix_cache_path)) {
+        std::cerr << "[timing] loaded prefix KV cache from disk, skipped model_forward\n" << std::flush;
+    } else {
+        model_forward(prefix_ids, weights, caches, sequence_id);
+        save_prefix_cache(caches, sequence_id, prefix_cache_path);
+    }
+
+    auto warm_end = std::chrono::high_resolution_clock::now();
+    std::cerr << "[timing] prefix warm-up done: "
+              << std::chrono::duration<double, std::milli>(warm_end - warm_start).count()
+              << " ms\n" << std::flush;
+
     size_t prefix_length = prefix_ids.size();
 
     std::cout << "s1-infer demo. Type a raw transcript and press Enter. Type 'exit' to quit.\n";
