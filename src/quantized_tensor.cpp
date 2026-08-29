@@ -1,7 +1,10 @@
 #include "core/quantized_tensor.h"
+#include "infer/thread_pool.h"
 #include <cmath>
 #include <algorithm>
 #include <immintrin.h> // AVX2
+
+ThreadPool& get_pool();
 
 QuantizedTensor quantize_tensor(const Tensor& t){
     /*
@@ -93,4 +96,27 @@ void matmul_quantized_range_blocked(const scalar_t* a, const QuantizedTensor& b,
             }
         }
     }
+}
+
+TensorPtr matmul_quantized(const TensorPtr& x, const QuantizedTensor& w) {
+    constexpr size_t kThreadingThreshold = 512; 
+
+    TensorPtr x_contig = x->is_contiguous() ? x : x->contiguous();
+    size_t M = x_contig->shape()[0];
+    size_t K = x_contig->shape()[1];
+    size_t N = w.cols;
+
+    TensorPtr out = Tensor::create({M, N});
+    const scalar_t* a = x_contig->data().data();
+    scalar_t* out_data = out->mutable_data().data();
+
+    if (N < kThreadingThreshold) {
+        matmul_quantized_range_blocked(a, w, out_data, M, K, N, 0, N);
+        return out;
+    }
+
+    get_pool().parallel_for(N, [&](size_t col_start, size_t col_end) {
+        matmul_quantized_range_blocked(a, w, out_data, M, K, N, col_start, col_end);
+    });
+    return out;
 }
