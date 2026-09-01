@@ -7,6 +7,8 @@ TensorPtr reshape_to_heads(const TensorPtr& input, size_t num_heads, size_t head
 
 TensorPtr GQA_attention(const TensorPtr& Q, const TensorPtr& K, const TensorPtr& V, size_t num_q_heads, size_t num_kv_heads, size_t head_dim);
 
+TensorPtr GQA_attention_paged(const TensorPtr& Q, const KVView& k_view, const KVView& v_view, size_t num_q_heads, size_t num_kv_heads, size_t head_dim);
+
 //wrapper 
 TensorPtr self_attention(
     const TensorPtr& x,              

@@ -49,7 +49,11 @@ TensorPtr GQA_attention(const TensorPtr& Q, const TensorPtr& K, const TensorPtr&
 
         size_t kv_head = h / group_size; //which K/V head to use for this Q head
 
+
+        
+
         for (size_t i = 0; i < kv_len; i++) {
+
             const scalar_t* k_src = k_ptr + (i * num_kv_heads * head_dim) + (kv_head * head_dim);
             std::copy(k_src, k_src + head_dim, k_slice.data() + i * head_dim);
 
@@ -95,6 +99,119 @@ TensorPtr GQA_attention(const TensorPtr& Q, const TensorPtr& K, const TensorPtr&
             }
 
             //future positions masked -> 0
+            for (size_t j = causal_limit + 1; j < kv_len; j++) {
+                row_scores[j] = 0.0f;
+            }
+        }
+
+        //scores @ v_slice -> write straight into output at head h
+        for (size_t i = 0; i < q_len; i++) {
+            const scalar_t* row_scores = scores.data() + i * kv_len;
+            size_t causal_limit = (kv_len - q_len) + i;
+
+            scalar_t* dst = out_ptr + (i * num_q_heads * head_dim) + (h * head_dim);
+            std::fill(dst, dst + head_dim, 0.0f);
+
+            for (size_t j = 0; j <= causal_limit; j++) {
+                scalar_t p = row_scores[j];
+                const scalar_t* v_row = v_slice.data() + j * head_dim;
+                for (size_t d = 0; d < head_dim; d++) {
+                    dst[d] += p * v_row[d];
+                }
+            }
+        }
+    }
+
+    return output;
+}
+
+TensorPtr GQA_attention_paged(const TensorPtr& Q, const KVView& k_view, const KVView& v_view, size_t num_q_heads, size_t num_kv_heads, size_t head_dim) {
+    /*
+        Same math as GQA_attention, but K/V come from the paged KVBlockPool
+    */
+
+    size_t group_size = num_q_heads / num_kv_heads;
+    size_t q_len = Q->shape()[0];
+    size_t kv_len = k_view.total_tokens;
+
+    auto Qc = Q->is_contiguous() ? Q : Q->contiguous();
+    const scalar_t* q_ptr = Qc->data().data();
+
+    auto output = Tensor::create({q_len, num_q_heads, head_dim});
+    scalar_t* out_ptr = output->mutable_data().data();
+
+    for (size_t h = 0; h < num_q_heads; h++){
+
+        std::vector<scalar_t> q_slice(q_len * head_dim);
+        for (size_t i = 0; i < q_len; i++) {
+            const scalar_t* src = q_ptr + (i * num_q_heads * head_dim) + (h * head_dim);
+            std::copy(src, src + head_dim, q_slice.data() + i * head_dim);
+        }
+
+        std::vector<scalar_t> k_slice(kv_len * head_dim);
+        std::vector<scalar_t> v_slice(kv_len * head_dim);
+        std::vector<scalar_t> scores(q_len * kv_len);
+
+        size_t kv_head = h / group_size;
+
+        for (size_t i = 0; i < kv_len; i++) {
+
+            //k
+            size_t k_block_in_table = i / k_view.block_size;
+            size_t k_offset_in_block = i % k_view.block_size;
+            size_t k_physical_block = (*k_view.block_table)[k_block_in_table];
+            size_t k_pool_row = k_physical_block * k_view.block_size + k_offset_in_block;
+
+            const scalar_t* k_src = k_view.base + (k_pool_row * num_kv_heads + kv_head) * head_dim;
+            std::copy(k_src, k_src + head_dim, k_slice.data() + i * head_dim);
+
+            //v
+            size_t v_block_in_table = i / v_view.block_size;
+            size_t v_offset_in_block = i % v_view.block_size;
+            size_t v_physical_block = (*v_view.block_table)[v_block_in_table];
+            size_t v_pool_row = v_physical_block * v_view.block_size + v_offset_in_block;
+
+            const scalar_t* v_src = v_view.base + (v_pool_row * num_kv_heads + kv_head) * head_dim;
+            std::copy(v_src, v_src + head_dim, v_slice.data() + i * head_dim);
+        }
+
+        //dot product + causal mask
+        for (size_t i = 0; i < q_len; i++){
+            const scalar_t* q_row = q_slice.data() + i * head_dim;
+            size_t causal_limit = (kv_len - q_len) + i;
+
+            for (size_t j = 0; j <= causal_limit; j++){
+                const scalar_t* k_row = k_slice.data() + j * head_dim;
+                scalar_t dot_product = 0.0f;
+
+                for (size_t d = 0; d < head_dim; d++){
+                    dot_product += q_row[d] * k_row[d];
+                }
+                scores[i * kv_len + j] = dot_product / std::sqrt(static_cast<scalar_t>(head_dim));
+            }
+        }
+
+        //softmax
+        for (size_t i = 0; i < q_len; i++) {
+            size_t causal_limit = (kv_len - q_len) + i;
+
+            scalar_t* row_scores = scores.data() + i * kv_len;
+            scalar_t max_val = -std::numeric_limits<scalar_t>::infinity();
+
+            for (size_t j = 0; j <= causal_limit; j++) {
+                max_val = std::max(max_val, row_scores[j]);
+            }
+
+            scalar_t sum = 0.0f;
+            for (size_t j = 0; j <= causal_limit; j++) {
+                row_scores[j] = std::exp(row_scores[j] - max_val);
+                sum += row_scores[j];
+            }
+
+            for (size_t j = 0; j <= causal_limit; j++) {
+                row_scores[j] /= sum;
+            }
+
             for (size_t j = causal_limit + 1; j < kv_len; j++) {
                 row_scores[j] = 0.0f;
             }
@@ -204,10 +321,10 @@ TensorPtr self_attention_quantized(
 
     cache.append(sequence_id, K_heads, V_heads);
 
-    TensorPtr full_k = cache.get_k(sequence_id);
-    TensorPtr full_v = cache.get_v(sequence_id);
+    KVView k_view = cache.get_k_view(sequence_id);
+    KVView v_view = cache.get_v_view(sequence_id);
 
-    auto attn_out = GQA_attention(Q_heads, full_k, full_v, 16, 8, 128);
+    auto attn_out = GQA_attention_paged(Q_heads, k_view, v_view, 16, 8, 128);
 
     size_t seq_len = x->shape()[0];
 
