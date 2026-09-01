@@ -20,53 +20,100 @@ TensorPtr GQA_attention(const TensorPtr& Q, const TensorPtr& K, const TensorPtr&
     size_t q_len = Q->shape()[0];
     size_t kv_len = K->shape()[0];
 
+    //flattened buffers 
+    auto Qc = Q->is_contiguous() ? Q : Q->contiguous();
+    auto Kc = K->is_contiguous() ? K : K->contiguous();
+    auto Vc = V->is_contiguous() ? V : V->contiguous();
+
+    const scalar_t* q_ptr = Qc->data().data();
+    const scalar_t* k_ptr = Kc->data().data();
+    const scalar_t* v_ptr = Vc->data().data();
+
     auto output = Tensor::create({q_len, num_q_heads, head_dim});
+    scalar_t* out_ptr = output->mutable_data().data();
 
 
     for (size_t h =0; h < num_q_heads; h++){
 
         //only THAT Q head for THAT group of K/V heads
-        auto Q_slice = Tensor::create({q_len, head_dim});
+        std::vector<scalar_t> q_slice(q_len * head_dim);
         for (size_t i = 0; i < q_len; i++) {
-            for (size_t j = 0; j < head_dim; j++) {
-                Q_slice->at({i, j}) = Q->at({i, h, j});
-            }
+            const scalar_t* src = q_ptr + (i * num_q_heads * head_dim) + (h * head_dim);
+            std::copy(src, src + head_dim, q_slice.data() + i * head_dim); //copy the head_dim elements for this Q head
         }
 
-        auto K_slice = Tensor::create({kv_len, head_dim});
-        auto V_slice = Tensor::create({kv_len, head_dim});
+        std::vector<scalar_t> k_slice(kv_len * head_dim);
+        std::vector<scalar_t> v_slice(kv_len * head_dim);
+
+        std::vector<scalar_t> scores(q_len * kv_len);
 
         size_t kv_head = h / group_size; //which K/V head to use for this Q head
 
         for (size_t i = 0; i < kv_len; i++) {
-            for (size_t j = 0; j < head_dim; j++) {
-                K_slice->at({i, j}) = K->at({i, kv_head, j});
-                V_slice->at({i, j}) = V->at({i, kv_head, j});
-           }
+            const scalar_t* k_src = k_ptr + (i * num_kv_heads * head_dim) + (kv_head * head_dim);
+            std::copy(k_src, k_src + head_dim, k_slice.data() + i * head_dim);
+
+            const scalar_t* v_src = v_ptr + (i * num_kv_heads * head_dim) + (kv_head * head_dim);
+            std::copy(v_src, v_src + head_dim, v_slice.data() + i * head_dim); 
         }
 
-        auto attn_scores = Q_slice->matmul(K_slice->transpose());
-        auto attn_scores_scaled = attn_scores->mul(Tensor::create({q_len, kv_len}, 1.0f / std::sqrt(static_cast<scalar_t>(head_dim))));
+        //dot product + causal mask 
+        for (size_t i = 0; i < q_len; i++){
+            const scalar_t* q_row = q_slice.data() + i * head_dim;
+            size_t causal_limit = (kv_len - q_len) + i;
+            
+            for (size_t j = 0; j <= causal_limit; j++){
+                const scalar_t* k_row = k_slice.data() + j * head_dim;
+                scalar_t dot_product = 0.0f;
 
-        //mask
-        for (size_t i = 0; i < q_len; i++) {
-            for (size_t j = 0; j < kv_len; j++) {
-                size_t offset = (kv_len - q_len) + i;
-
-                if (j > offset) {
-                    attn_scores_scaled->at({i, j}) = -std::numeric_limits<scalar_t>::infinity();
+                for (size_t d = 0; d < head_dim; d++){
+                    dot_product += q_row[d] * k_row[d];
                 }
+                scores[i * kv_len + j] = dot_product / std::sqrt(static_cast<scalar_t>(head_dim));
             }
         }
 
-        auto attn_probs = attn_scores_scaled->softmax(1);
-
-        auto attn_out_slice = attn_probs->matmul(V_slice);
-
-        //copy back at right HEAD
+        //softmax
         for (size_t i = 0; i < q_len; i++) {
-            for (size_t j = 0; j < head_dim; j++) {
-                output->at({i, h, j}) = attn_out_slice->at({i, j});
+            size_t causal_limit = (kv_len - q_len) + i;
+
+            scalar_t* row_scores = scores.data() + i * kv_len;
+            scalar_t max_val = -std::numeric_limits<scalar_t>::infinity();
+
+            for (size_t j = 0; j <= causal_limit; j++) {
+                max_val = std::max(max_val, row_scores[j]);
+            }
+
+            scalar_t sum = 0.0f;
+            for (size_t j = 0; j <= causal_limit; j++) {
+                row_scores[j] = std::exp(row_scores[j] - max_val);
+                sum += row_scores[j];
+            }
+
+            for (size_t j = 0; j <= causal_limit; j++) {
+                row_scores[j] /= sum;
+            }
+
+            //future positions masked -> 0
+            for (size_t j = causal_limit + 1; j < kv_len; j++) {
+                row_scores[j] = 0.0f;
+            }
+        }
+
+        //scores @ v_slice -> write straight into output at head h
+        for (size_t i = 0; i < q_len; i++) {
+            const scalar_t* row_scores = scores.data() + i * kv_len;
+            size_t causal_limit = (kv_len - q_len) + i;
+
+            scalar_t* dst = out_ptr + (i * num_q_heads * head_dim) + (h * head_dim);
+            std::fill(dst, dst + head_dim, 0.0f);
+
+            for (size_t j = 0; j <= causal_limit; j++) {
+                scalar_t p = row_scores[j];
+                const scalar_t* v_row = v_slice.data() + j * head_dim;
+                for (size_t d = 0; d < head_dim; d++) {
+                    dst[d] += p * v_row[d];
+                }
             }
         }
     }
