@@ -189,4 +189,37 @@ void KVBlockPool::truncate(size_t sequence_id, size_t keep_length) {
     state.tokens_in_last_block = tokens_in_last_block;
 }
 
+KVView KVBlockPool::get_k_view(size_t sequence_id) const{
+    auto it = sequences_.find(sequence_id);
+    if (it == sequences_.end()) {
+        throw std::runtime_error("Sequence ID not found");
+    }
+
+    const SequenceState& state = it->second;
+
+    size_t total_tokens = length(sequence_id);
+
+    const scalar_t* base_ptr = pool_k_->data().data();
+    const std::vector<size_t>* block_table_ptr = &state.block_table;
+
+    return KVView{base_ptr, block_table_ptr, block_size_, total_tokens};
+    
+}
+
+KVView KVBlockPool::get_v_view(size_t sequence_id) const{
+    auto it = sequences_.find(sequence_id);
+    if (it == sequences_.end()) {
+        throw std::runtime_error("Sequence ID not found");
+    }
+
+    const SequenceState& state = it->second;
+
+    size_t total_tokens = length(sequence_id);
+
+    const scalar_t* base_ptr = pool_v_->data().data();
+    const std::vector<size_t>* block_table_ptr = &state.block_table;
+
+    return KVView{base_ptr, block_table_ptr, block_size_, total_tokens};
+}
+
     

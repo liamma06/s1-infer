@@ -3,6 +3,13 @@
 #include <unordered_map>
 #include <vector>
 
+struct KVView{
+    const scalar_t* base; 
+    const std::vector<size_t>* block_table;
+    size_t block_size;
+    size_t total_tokens;
+};
+
 class KVBlockPool {
     private:
         TensorPtr pool_k_;  
@@ -32,4 +39,8 @@ class KVBlockPool {
         void remove(size_t sequence_id);
 
         void truncate(size_t sequence_id, size_t keep_length);
+
+        KVView get_k_view(size_t sequence_id) const;
+        KVView get_v_view(size_t sequence_id) const;
+
 };
