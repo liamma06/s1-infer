@@ -40,3 +40,27 @@ TEST_CASE("swiglu_mlp with identity weights matches manual silu(x)*x") {
     CHECK(out->at({0, 0}) == doctest::Approx(0.7310586f));
     CHECK(out->at({0, 1}) == doctest::Approx(3.5231757f));
 }
+
+TEST_CASE("silu_mul matches silu(gate)->mul(up) element-by-element, including the AVX2 tail") {
+    // 11 elements: exercises one full 8-wide AVX2 chunk plus a 3-element
+    // scalar tail, so both code paths inside silu_mul actually get hit.
+    // Mixed positive/negative/zero values, not a repeating pattern, so a
+    // lane-order or indexing bug can't accidentally cancel out.
+    std::vector<scalar_t> gate_vals = {
+        0.5f, -1.3f, 2.7f, 0.0f, -0.2f, 4.1f, -3.6f, 1.1f, -0.9f, 0.3f, -2.2f
+    };
+    std::vector<scalar_t> up_vals = {
+        1.0f, 2.0f, -0.5f, 3.3f, -1.1f, 0.2f, 5.0f, -4.4f, 0.7f, -0.1f, 1.8f
+    };
+
+    TensorPtr gate = std::make_shared<Tensor>(std::vector<size_t>{11}, gate_vals);
+    TensorPtr up = std::make_shared<Tensor>(std::vector<size_t>{11}, up_vals);
+
+    TensorPtr expected = silu(gate)->mul(up);
+    TensorPtr actual = silu_mul(gate, up);
+
+    REQUIRE(actual->shape() == expected->shape());
+    for (size_t i = 0; i < 11; i++) {
+        CHECK(actual->at({i}) == doctest::Approx(expected->at({i})));
+    }
+}

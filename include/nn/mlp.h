@@ -4,6 +4,8 @@
 
 TensorPtr silu(const TensorPtr& x);
 
+TensorPtr silu_mul(const TensorPtr& gate, const TensorPtr& up);
+
 TensorPtr swiglu_mlp(
     const TensorPtr& x,
     const TensorPtr& gate_proj_weight,
